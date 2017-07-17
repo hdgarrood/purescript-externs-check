@@ -1,5 +1,10 @@
 {
   "name": "purescript-externs-check",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hdgarrood/purescript-externs-check"
+  },
   "ignore": [
     "**/.*",
     "node_modules",
