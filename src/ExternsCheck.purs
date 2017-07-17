@@ -4,25 +4,25 @@ import Prelude
 
 import Control.MonadPlus (guard, (<|>))
 import Data.Newtype (class Newtype, unwrap)
-import Data.Maybe (Maybe(..))
-import Data.Either (Either(..), either)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
 import Data.Array ((!!))
 import Data.Foldable (find)
 import Data.Traversable (traverse)
 import Data.StrMap as StrMap
 import Data.Argonaut (Json, foldJsonObject, toArray, toString)
+import Data.Validation.Semigroup (V, invalid)
 
 -- | Check that the externs JSON for the given module exports an entry point
 -- | with the given name, and that its type is suitable for use as a program's
 -- | entry point.
 -- |
 -- | Returns Nothing if it looks OK, or otherwise Just with a reason.
-checkEntryPoint :: String -> Json -> Maybe UnsuitableReason 
+checkEntryPoint :: String -> Json -> V (Array UnsuitableReason) Unit
 checkEntryPoint ident json =
   case findTypeOf json ident of
     Just ty -> checkSuitableMain ty
-    Nothing -> Just NoExport
+    Nothing -> invalid [NoExport]
 
 -- | Some JSON representing a type in a PureScript externs file.
 newtype Type = Type Json
@@ -35,7 +35,9 @@ newtype FQName = FQName String
 derive instance newtypeFQName :: Newtype FQName _
 derive newtype instance eqFQName :: Eq FQName
 derive newtype instance showFQName :: Show FQName
+derive newtype instance ordFQName :: Ord FQName
 
+-- | A `FQName` representing `Eff` from `Control.Monad.Eff`.
 typeEff :: FQName
 typeEff = FQName "Control.Monad.Eff.Eff"
 
@@ -47,8 +49,29 @@ findTypeOf externs ident = go externs
   go =
     prop "efDeclarations"
     >=> toArray
-    >=> find (\j -> nameIs ident j)
+    >=> find (nameIs ident)
     >=> getType
+
+-- | Return a list of exported values from a module, given its externs file
+exportedValues :: Json -> Array String
+exportedValues externs =
+  let
+    exports =
+      fromMaybe [] (prop "efExports" externs >>= toArray)
+
+    maybeToArray =
+      maybe [] (\x -> [x])
+  in
+    exports >>= (maybeToArray <<< getIdent)
+
+  where
+  getIdent :: Json -> Maybe String
+  getIdent =
+    prop "ValueRef"
+    >=> toArray
+    >=> (_ !! 1)
+    >=> prop "Ident"
+    >=> toString
 
 prop :: String -> Json -> Maybe Json
 prop i = foldJsonObject Nothing (StrMap.lookup i)
@@ -69,31 +92,25 @@ getType =
   >=> prop "edValueType"
   >=> (pure <<< Type)
 
-checkSuitableMain :: Type -> Maybe UnsuitableReason
+checkSuitableMain :: Type -> V (Array UnsuitableReason) Unit
 checkSuitableMain ty =
-  eitherToMaybe do
-    checkConstraints ty
-    checkIsEff ty
+  checkConstraints ty *> checkIsEff ty
 
-  where
-  eitherToMaybe :: forall l. Either l Unit -> Maybe l
-  eitherToMaybe = either Just (const Nothing)
-
-checkConstraints :: Type -> Either UnsuitableReason Unit
+checkConstraints :: Type -> V (Array UnsuitableReason) Unit
 checkConstraints ty =
   case getConstraints ty of
-    [] -> Right unit
-    cs -> Left (Constraints cs)
+    [] -> pure unit
+    cs -> invalid [Constraints cs]
 
-checkIsEff :: Type -> Either UnsuitableReason Unit
+checkIsEff :: Type -> V (Array UnsuitableReason) Unit
 checkIsEff ty =
   case getHeadTypeCon ty of
     Just h ->
       if h == typeEff
-        then Right unit
-        else Left (NotEff (Just h))
+        then pure unit
+        else invalid [NotEff (Just h)]
     Nothing ->
-      Left (NotEff Nothing)
+      invalid [NotEff Nothing]
 
 -- | If the JSON has a "tag" property matching the given string, attempt to
 -- | extract and decode the "contents" property as an array of JSON objects.
@@ -169,8 +186,11 @@ data UnsuitableReason
   | NotEff (Maybe FQName)
   | NoExport
 
+derive instance eqUnsuitableReason :: Eq UnsuitableReason
+derive instance ordUnsuitableReason :: Ord UnsuitableReason
+
 instance showUnsuitableReason :: Show UnsuitableReason where
   show (Constraints cs) = "Unexpected constraints: " <> show cs
   show (NotEff (Just n)) = "Expected Eff, found " <> show n
-  show (NotEff Nothing) = "Expected Eff"
+  show (NotEff Nothing) = "Expected Eff, found some other type"
   show NoExport = "Entry point not found"
