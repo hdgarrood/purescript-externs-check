@@ -18,11 +18,9 @@ import Data.StrMap as StrMap
 import Data.Argonaut (Json, foldJsonObject, toArray, toString)
 import Data.Validation.Semigroup (V, invalid)
 
--- | Check that the externs JSON for the given module exports an entry point
--- | with the given name, and that its type is suitable for use as a program's
--- | entry point.
--- |
--- | Returns Nothing if it looks OK, or otherwise Just with a reason.
+-- | Given a module's externs JSON, check that it exports a value with the
+-- | given name, and also that the value is suitable for use as a program's
+-- | entry point (based on its type in the externs file).
 checkEntryPoint :: String -> Json -> V (Array UnsuitableReason) Unit
 checkEntryPoint ident json =
   case findTypeOf json ident of
