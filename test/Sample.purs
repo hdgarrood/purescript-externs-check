@@ -41,3 +41,6 @@ notok_4 = undefined
 
 notok_5 :: MyEff.Eff
 notok_5 = undefined
+
+notok_6 :: Semiring Int => Eff () Int
+notok_6 = undefined

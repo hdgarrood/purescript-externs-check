@@ -1,23 +1,25 @@
 module Test.Main where
 
 import Prelude
-import Data.Maybe (Maybe(..), maybe, isJust)
+import Data.Maybe (isJust)
 import Data.Either (either)
 import Data.Array as Array
 import Data.Argonaut (jsonParser)
 import Data.Foldable (for_)
 import Data.Validation.Semigroup (V, unV, isValid)
 import Data.String (stripPrefix, Pattern(..))
-import Control.Monad.Eff.Exception (throw)
+import Control.Monad.Eff.Exception (throw, EXCEPTION)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log, logShow)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Node.FS (FS)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync (readTextFile)
 
 import ExternsCheck (checkEntryPoint, UnsuitableReason, exportedValues)
 
-main :: forall e. Eff _ Unit
+type EffT = Eff (console :: CONSOLE, exception :: EXCEPTION, fs :: FS)
+
+main :: EffT Unit
 main = do
   externsStr <- readTextFile UTF8 "./output/Test.Sample/externs.json"
   externs <- either throw pure $ jsonParser externsStr
@@ -48,15 +50,15 @@ main = do
   isOk = isJust <<< stripPrefix (Pattern "ok")
   isNotOk = isJust <<< stripPrefix (Pattern "notok")
 
-shouldSucceed :: V (Array UnsuitableReason) Unit -> Eff _ Unit
+shouldSucceed :: V (Array UnsuitableReason) Unit -> EffT Unit
 shouldSucceed =
   unV (\errs -> throw ("Expected no errors, got " <> show errs)) pure
 
-shouldFail :: V (Array UnsuitableReason) Unit -> Eff _ Unit
+shouldFail :: V (Array UnsuitableReason) Unit -> EffT Unit
 shouldFail v =
   if isValid v then throw "Expected errors, got none" else pure unit
 
-shouldFailWith :: Array UnsuitableReason -> V (Array UnsuitableReason) Unit -> Eff _ Unit
+shouldFailWith :: Array UnsuitableReason -> V (Array UnsuitableReason) Unit -> EffT Unit
 shouldFailWith exp =
   unV (\act -> when (exp `differentFrom` act)
                    (throw ("Expected " <> show exp <> ", got " <> show act)))
