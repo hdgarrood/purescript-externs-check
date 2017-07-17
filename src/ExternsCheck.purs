@@ -1,4 +1,9 @@
-module ExternsCheck where
+module ExternsCheck
+  ( checkEntryPoint
+  , UnsuitableReason(..)
+  , FQName(..)
+  , exportedValues
+  ) where
 
 import Prelude
 
