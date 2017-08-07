@@ -1,5 +1,7 @@
 module ExternsCheck
   ( checkEntryPoint
+  , Options
+  , defaultOptions
   , UnsuitableReason(..)
   , FQName(..)
   , exportedValues
@@ -9,6 +11,8 @@ import Prelude
 
 import Control.MonadPlus (guard, (<|>))
 import Data.Newtype (class Newtype, unwrap)
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String as String
 import Data.Array ((!!))
@@ -18,24 +22,53 @@ import Data.StrMap as StrMap
 import Data.Argonaut (Json, foldJsonObject, toArray, toString)
 import Data.Validation.Semigroup (V, invalid)
 
+-- | Options for checking an entry point.
+-- |
+-- | The `typeConstructor` option allows you to pick a single type constructor
+-- | which the entry point should be using; usually this will be
+-- | `Control.Monad.Eff.Eff`, but you may want to use an alternative type. Note
+-- | however, that whichever type you use, you should ensure that its runtime
+-- | representation is the same as `Eff`, in that it should be a function which
+-- | executes your program when it is called with no arguments, as most
+-- | PureScript tooling will assume that this is the case.
+-- |
+-- | The `mainName` option specifies the name of the entry point value; usually
+-- | "main".
+type Options
+  = { typeConstructor :: FQName
+    , mainName :: String
+    }
+
+-- | Default `Options` for an entry point check. Using these `Options` will
+-- | check that your entry point module exports a `main` value whose type is
+-- | `Eff`.
+defaultOptions :: Options
+defaultOptions =
+  { typeConstructor: typeEff
+  , mainName: "main"
+  }
+
 -- | Given a module's externs JSON, check that it exports a value with the
--- | given name, and also that the value is suitable for use as a program's
--- | entry point (based on its type in the externs file).
-checkEntryPoint :: String -> Json -> V (Array UnsuitableReason) Unit
-checkEntryPoint ident json =
-  case findTypeOf json ident of
-    Just ty -> checkSuitableMain ty
+-- | name specified in the `Options`, and also that the value is suitable for
+-- | use as a program's entry point (based on comparing its type in the externs
+-- | file to the type specified in the `Options`).
+checkEntryPoint :: Options -> Json -> V (Array UnsuitableReason) Unit
+checkEntryPoint { typeConstructor, mainName } json =
+  case findTypeOf json mainName of
+    Just ty -> checkSuitableMain typeConstructor ty
     Nothing -> invalid [NoExport]
 
 -- | Some JSON representing a type in a PureScript externs file.
 newtype Type = Type Json
 
 derive instance newtypeType :: Newtype Type _
+derive instance genericType :: Generic Type _
 
 -- | A fully-qualified name (eg. for a value or a type class).
 newtype FQName = FQName String
 
 derive instance newtypeFQName :: Newtype FQName _
+derive instance genericFQName :: Generic FQName _
 derive newtype instance eqFQName :: Eq FQName
 derive newtype instance showFQName :: Show FQName
 derive newtype instance ordFQName :: Ord FQName
@@ -95,9 +128,9 @@ getType =
   >=> prop "edValueType"
   >=> (pure <<< Type)
 
-checkSuitableMain :: Type -> V (Array UnsuitableReason) Unit
-checkSuitableMain ty =
-  checkConstraints ty *> checkIsEff ty
+checkSuitableMain :: FQName -> Type -> V (Array UnsuitableReason) Unit
+checkSuitableMain name ty =
+  checkConstraints ty *> checkMatches name ty
 
 checkConstraints :: Type -> V (Array UnsuitableReason) Unit
 checkConstraints ty =
@@ -105,15 +138,15 @@ checkConstraints ty =
     [] -> pure unit
     cs -> invalid [Constraints cs]
 
-checkIsEff :: Type -> V (Array UnsuitableReason) Unit
-checkIsEff ty =
+checkMatches :: FQName -> Type -> V (Array UnsuitableReason) Unit
+checkMatches name ty =
   case getHeadTypeCon ty of
     Just h ->
-      if h == typeEff
+      if h == name
         then pure unit
-        else invalid [NotEff (Just h)]
+        else invalid [TypeMismatch (Just h)]
     Nothing ->
-      invalid [NotEff Nothing]
+      invalid [TypeMismatch Nothing]
 
 -- | If the JSON has a "tag" property matching the given string, attempt to
 -- | extract and decode the "contents" property as an array of JSON objects.
@@ -186,14 +219,12 @@ repeatedly f = go
 
 data UnsuitableReason
   = Constraints (Array FQName)
-  | NotEff (Maybe FQName)
+  | TypeMismatch (Maybe FQName)
   | NoExport
 
 derive instance eqUnsuitableReason :: Eq UnsuitableReason
 derive instance ordUnsuitableReason :: Ord UnsuitableReason
+derive instance genericUnsuitableReason :: Generic UnsuitableReason _
 
 instance showUnsuitableReason :: Show UnsuitableReason where
-  show (Constraints cs) = "Unexpected constraints: " <> show cs
-  show (NotEff (Just n)) = "Expected Eff, found " <> show n
-  show (NotEff Nothing) = "Expected Eff, found some other type"
-  show NoExport = "Entry point not found"
+  show = genericShow
