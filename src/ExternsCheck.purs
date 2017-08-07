@@ -14,13 +14,14 @@ import Data.Newtype (class Newtype, unwrap)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Either (Either(..))
 import Data.String as String
 import Data.Array ((!!))
 import Data.Foldable (find)
 import Data.Traversable (traverse)
 import Data.StrMap as StrMap
 import Data.Argonaut (Json, foldJsonObject, toArray, toString)
-import Data.Validation.Semigroup (V, invalid)
+import Data.Validation.Semigroup (V, unV, invalid)
 
 -- | Options for checking an entry point.
 -- |
@@ -52,8 +53,12 @@ defaultOptions =
 -- | name specified in the `Options`, and also that the value is suitable for
 -- | use as a program's entry point (based on comparing its type in the externs
 -- | file to the type specified in the `Options`).
-checkEntryPoint :: Options -> Json -> V (Array UnsuitableReason) Unit
-checkEntryPoint { typeConstructor, mainName } json =
+checkEntryPoint :: Options -> Json -> Either (Array UnsuitableReason) Unit
+checkEntryPoint opts json =
+  unV Left Right (checkEntryPointV opts json)
+
+checkEntryPointV :: Options -> Json -> V (Array UnsuitableReason) Unit
+checkEntryPointV { typeConstructor, mainName } json =
   case findTypeOf json mainName of
     Just ty -> checkSuitableMain typeConstructor ty
     Nothing -> invalid [NoExport]
