@@ -4,6 +4,7 @@ module ExternsCheck
   , defaultOptions
   , UnsuitableReason(..)
   , FQName(..)
+  , typeEff
   , exportedValues
   ) where
 
@@ -78,7 +79,9 @@ derive newtype instance eqFQName :: Eq FQName
 derive newtype instance showFQName :: Show FQName
 derive newtype instance ordFQName :: Ord FQName
 
--- | A `FQName` representing `Eff` from `Control.Monad.Eff`.
+-- | A `FQName` representing `Eff` from `Control.Monad.Eff`. This is defined as
+-- |
+-- |     FQName "Control.Monad.Eff.Eff"
 typeEff :: FQName
 typeEff = FQName "Control.Monad.Eff.Eff"
 
