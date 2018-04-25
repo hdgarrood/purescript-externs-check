@@ -1,21 +1,21 @@
 module Test.Main where
 
 import Prelude
-import Data.Maybe (isJust)
-import Data.Either (either)
-import Data.Array as Array
-import Data.Argonaut (jsonParser)
-import Data.Foldable (for_)
-import Data.Validation.Semigroup (V, unV, isValid)
-import Data.String (stripPrefix, Pattern(..))
-import Control.Monad.Eff.Exception (throw, EXCEPTION)
+
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
-import Node.FS (FS)
+import Control.Monad.Eff.Exception (throw, EXCEPTION)
+import Data.Argonaut (jsonParser)
+import Data.Array as Array
+import Data.Either (either)
+import Data.Foldable (for_)
+import Data.Maybe (isJust)
+import Data.String (stripPrefix, Pattern(..))
+import Data.Validation.Semigroup (V, unV, isValid)
+import ExternsCheck (UnsuitableReason, checkEntryPointV, defaultOptions, exportedValues)
 import Node.Encoding (Encoding(UTF8))
+import Node.FS (FS)
 import Node.FS.Sync (readTextFile)
-
-import ExternsCheck (checkEntryPoint, UnsuitableReason, exportedValues)
 
 type EffT = Eff (console :: CONSOLE, exception :: EXCEPTION, fs :: FS)
 
@@ -29,11 +29,11 @@ main = do
   log "Passing cases:"
   for_ (Array.filter isOk cases) \c -> do
     log ("  " <> c)
-    shouldSucceed (checkEntryPoint c externs)
+    shouldSucceed (checkEntryPointV (defaultOptions { mainName = c }) externs)
 
   log "Failing cases:"
   for_ (Array.filter isNotOk cases) \c -> do
-    let v = checkEntryPoint c externs
+    let v = checkEntryPointV (defaultOptions { mainName = c }) externs
     log ("  " <> c <> ":")
     log ("    " <> show v)
     shouldFail v
@@ -41,7 +41,7 @@ main = do
   log "Nonexistent entry point:"
   do
     let c = "nonexistent"
-    let v = checkEntryPoint c externs
+    let v = checkEntryPointV (defaultOptions { mainName = c }) externs
     log ("  " <> c <> ":")
     log ("    " <> show v)
     shouldFail v

@@ -1,7 +1,9 @@
 module Test.Sample where
 
 import Prelude
+
 import Control.Monad.Eff (Eff)
+import Effect (Effect)
 import Test.MyEff as MyEff
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -26,6 +28,9 @@ ok_4 = undefined
 
 ok_5 :: forall e a. e ^^^ a
 ok_5 = undefined
+
+ok_6 :: Effect Unit
+ok_6 = undefined
 
 notok_1 :: forall e. Partial => Eff e Unit
 notok_1 = undefined
