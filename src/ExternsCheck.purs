@@ -1,6 +1,5 @@
 module ExternsCheck
   ( checkEntryPoint
-  , checkEntryPointV
   , Options
   , defaultOptions
   , UnsuitableReason(..)
@@ -13,11 +12,11 @@ import Prelude
 
 import Control.MonadPlus (guard, (<|>))
 import Data.Argonaut (Json, foldJsonObject, toArray, toString)
-import Data.Array (elem, findMap, (!!))
+import Data.Array (elem, (!!))
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Either (Either(..))
-import Data.Foldable (find, sequence_)
+import Data.Foldable (find)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
