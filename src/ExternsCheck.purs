@@ -28,14 +28,14 @@ import Data.Validation.Semigroup (V, unV, invalid)
 
 -- | Options for checking an entry point.
 -- |
--- | The `typeConstructors` option allows you to pick type constructors
--- | which the entry point is allowed to use; usually this will be
--- | `Control.Monad.Eff.Eff` and `Effect.Effect`, but you may want to use an
--- | alternative list of types. Note however, that whichever types you use, you
--- | should ensure that their runtime representation is the same as `Eff`, in
--- | that it should be a function which executes your program when it is called
--- | with no arguments, as most PureScript tooling will assume that this is the
--- | case.
+-- | The `typeConstructors` option allows you to provide a list of type
+-- | constructors which the entry point's type must appear in; usually this
+-- | array will consist of `Effect.Effect` and `Control.Monad.Eff.Eff`, but you
+-- | may want to use an alternative list of types. Note however, that whichever
+-- | types you use, you should ensure that their runtime representation is the
+-- | same as `Effect`, in that it should be a function which executes your
+-- | program when it is called with no arguments, as most PureScript tooling
+-- | will assume that this is the case.
 -- |
 -- | The `mainName` option specifies the name of the entry point value; usually
 -- | "main".
@@ -46,7 +46,7 @@ type Options
 
 -- | Default `Options` for an entry point check. Using these `Options` will
 -- | check that your entry point module exports a `main` value whose type is
--- | `Eff`.
+-- | either `Effect.Effect` or `Control.Monad.Eff.Eff`.
 defaultOptions :: Options
 defaultOptions =
   { typeConstructors: NEA.cons typeEff (pure typeEffect)
@@ -56,7 +56,7 @@ defaultOptions =
 -- | Given a module's externs JSON, check that it exports a value with the
 -- | name specified in the `Options`, and also that the value is suitable for
 -- | use as a program's entry point (based on comparing its type in the externs
--- | file to the type specified in the `Options`).
+-- | file to the types specified in the `Options`).
 checkEntryPoint :: Options -> Json -> Either (Array UnsuitableReason) Unit
 checkEntryPoint opts json =
   unV Left Right (checkEntryPointV opts json)
