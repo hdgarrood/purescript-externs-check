@@ -1,5 +1,6 @@
 module ExternsCheck
   ( checkEntryPoint
+  , checkEntryPointV
   , Options
   , defaultOptions
   , UnsuitableReason(..)
@@ -11,33 +12,36 @@ module ExternsCheck
 import Prelude
 
 import Control.MonadPlus (guard, (<|>))
-import Data.Newtype (class Newtype, unwrap)
+import Data.Argonaut (Json, foldJsonObject, toArray, toString)
+import Data.Array (elem, findMap, (!!))
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NEA
+import Data.Either (Either(..))
+import Data.Foldable (find, sequence_)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Either (Either(..))
-import Data.String as String
-import Data.Array ((!!))
-import Data.Foldable (find)
-import Data.Traversable (traverse)
+import Data.Newtype (class Newtype, unwrap)
 import Data.StrMap as StrMap
-import Data.Argonaut (Json, foldJsonObject, toArray, toString)
+import Data.String as String
+import Data.Traversable (traverse)
 import Data.Validation.Semigroup (V, unV, invalid)
 
 -- | Options for checking an entry point.
 -- |
--- | The `typeConstructor` option allows you to pick a single type constructor
--- | which the entry point should be using; usually this will be
--- | `Control.Monad.Eff.Eff`, but you may want to use an alternative type. Note
--- | however, that whichever type you use, you should ensure that its runtime
--- | representation is the same as `Eff`, in that it should be a function which
--- | executes your program when it is called with no arguments, as most
--- | PureScript tooling will assume that this is the case.
+-- | The `typeConstructors` option allows you to pick type constructors
+-- | which the entry point is allowed to use; usually this will be
+-- | `Control.Monad.Eff.Eff` and `Effect.Effect`, but you may want to use an
+-- | alternative list of types. Note however, that whichever types you use, you
+-- | should ensure that their runtime representation is the same as `Eff`, in
+-- | that it should be a function which executes your program when it is called
+-- | with no arguments, as most PureScript tooling will assume that this is the
+-- | case.
 -- |
 -- | The `mainName` option specifies the name of the entry point value; usually
 -- | "main".
 type Options
-  = { typeConstructor :: FQName
+  = { typeConstructors :: NonEmptyArray FQName
     , mainName :: String
     }
 
@@ -46,7 +50,7 @@ type Options
 -- | `Eff`.
 defaultOptions :: Options
 defaultOptions =
-  { typeConstructor: typeEff
+  { typeConstructors: NEA.cons typeEff (pure typeEffect)
   , mainName: "main"
   }
 
@@ -59,9 +63,9 @@ checkEntryPoint opts json =
   unV Left Right (checkEntryPointV opts json)
 
 checkEntryPointV :: Options -> Json -> V (Array UnsuitableReason) Unit
-checkEntryPointV { typeConstructor, mainName } json =
+checkEntryPointV { typeConstructors, mainName } json =
   case findTypeOf json mainName of
-    Just ty -> checkSuitableMain typeConstructor ty
+    Just ty -> checkSuitableMain typeConstructors ty
     Nothing -> invalid [NoExport]
 
 -- | Some JSON representing a type in a PureScript externs file.
@@ -84,6 +88,12 @@ derive newtype instance ordFQName :: Ord FQName
 -- |     FQName "Control.Monad.Eff.Eff"
 typeEff :: FQName
 typeEff = FQName "Control.Monad.Eff.Eff"
+
+-- | A `FQName` representing `Effect` from `Effect`. This is defined as
+-- |
+-- |     FQName "Effect.Effect"
+typeEffect :: FQName
+typeEffect = FQName "Effect.Effect"
 
 -- | Given the JSON in an externs file, find the type of the identifier
 -- | with the given name (if any).
@@ -136,9 +146,9 @@ getType =
   >=> prop "edValueType"
   >=> (pure <<< Type)
 
-checkSuitableMain :: FQName -> Type -> V (Array UnsuitableReason) Unit
-checkSuitableMain name ty =
-  checkConstraints ty *> checkMatches name ty
+checkSuitableMain :: NonEmptyArray FQName -> Type -> V (Array UnsuitableReason) Unit
+checkSuitableMain names ty =
+  checkConstraints ty *> checkMatches names ty
 
 checkConstraints :: Type -> V (Array UnsuitableReason) Unit
 checkConstraints ty =
@@ -146,13 +156,12 @@ checkConstraints ty =
     [] -> pure unit
     cs -> invalid [Constraints cs]
 
-checkMatches :: FQName -> Type -> V (Array UnsuitableReason) Unit
-checkMatches name ty =
+checkMatches :: NonEmptyArray FQName -> Type -> V (Array UnsuitableReason) Unit
+checkMatches names ty =
   case getHeadTypeCon ty of
-    Just h ->
-      if h == name
-        then pure unit
-        else invalid [TypeMismatch (Just h)]
+    Just h
+      | elem h names -> pure unit
+      | otherwise -> invalid [TypeMismatch (Just h)]
     Nothing ->
       invalid [TypeMismatch Nothing]
 
