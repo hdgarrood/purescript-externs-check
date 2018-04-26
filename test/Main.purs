@@ -5,16 +5,12 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Exception (throw, EXCEPTION)
-import Data.Maybe (isJust)
-import Data.Either (Either, either)
-import Data.Array as Array
 import Data.Argonaut (jsonParser)
 import Data.Array as Array
-import Data.Either (either)
+import Data.Either (Either, either)
 import Data.Foldable (for_)
 import Data.Maybe (isJust)
 import Data.String (stripPrefix, Pattern(..))
-import Data.Validation.Semigroup (V, unV, isValid)
 import ExternsCheck (UnsuitableReason, checkEntryPoint, defaultOptions, exportedValues)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS (FS)
