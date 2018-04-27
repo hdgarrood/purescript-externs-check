@@ -57,15 +57,15 @@ defaultOptions =
 -- | name specified in the `Options`, and also that the value is suitable for
 -- | use as a program's entry point (based on comparing its type in the externs
 -- | file to the types specified in the `Options`).
-checkEntryPoint :: Options -> Json -> Either (Array UnsuitableReason) Unit
+checkEntryPoint :: Options -> Json -> Either (NonEmptyArray UnsuitableReason) Unit
 checkEntryPoint opts json =
   unV Left Right (checkEntryPointV opts json)
 
-checkEntryPointV :: Options -> Json -> V (Array UnsuitableReason) Unit
+checkEntryPointV :: Options -> Json -> V (NonEmptyArray UnsuitableReason) Unit
 checkEntryPointV { typeConstructors, mainName } json =
   case findTypeOf json mainName of
     Just ty -> checkSuitableMain typeConstructors ty
-    Nothing -> invalid [NoExport]
+    Nothing -> invalid (pure (NoExport))
 
 -- | Some JSON representing a type in a PureScript externs file.
 newtype Type = Type Json
@@ -145,24 +145,24 @@ getType =
   >=> prop "edValueType"
   >=> (pure <<< Type)
 
-checkSuitableMain :: NonEmptyArray FQName -> Type -> V (Array UnsuitableReason) Unit
+checkSuitableMain :: NonEmptyArray FQName -> Type -> V (NonEmptyArray UnsuitableReason) Unit
 checkSuitableMain names ty =
   checkConstraints ty *> checkMatches names ty
 
-checkConstraints :: Type -> V (Array UnsuitableReason) Unit
+checkConstraints :: Type -> V (NonEmptyArray UnsuitableReason) Unit
 checkConstraints ty =
   case getConstraints ty of
     [] -> pure unit
-    cs -> invalid [Constraints cs]
+    cs -> invalid (pure (Constraints cs))
 
-checkMatches :: NonEmptyArray FQName -> Type -> V (Array UnsuitableReason) Unit
+checkMatches :: NonEmptyArray FQName -> Type -> V (NonEmptyArray UnsuitableReason) Unit
 checkMatches names ty =
   case getHeadTypeCon ty of
     Just h
       | elem h names -> pure unit
-      | otherwise -> invalid [TypeMismatch (Just h)]
+      | otherwise -> invalid (pure (TypeMismatch (Just h)))
     Nothing ->
-      invalid [TypeMismatch Nothing]
+      invalid (pure (TypeMismatch Nothing))
 
 -- | If the JSON has a "tag" property matching the given string, attempt to
 -- | extract and decode the "contents" property as an array of JSON objects.

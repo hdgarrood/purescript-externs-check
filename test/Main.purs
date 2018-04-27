@@ -7,6 +7,8 @@ import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Exception (throw, EXCEPTION)
 import Data.Argonaut (jsonParser)
 import Data.Array as Array
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NonEmptyArray
 import Data.Either (Either, either)
 import Data.Foldable (for_)
 import Data.Maybe (isJust)
@@ -49,19 +51,19 @@ main = do
   isOk = isJust <<< stripPrefix (Pattern "ok")
   isNotOk = isJust <<< stripPrefix (Pattern "notok")
 
-shouldSucceed :: Either (Array UnsuitableReason) Unit -> EffT Unit
+shouldSucceed :: Either (NonEmptyArray UnsuitableReason) Unit -> EffT Unit
 shouldSucceed =
   either (\errs -> throw ("Expected no errors, got " <> show errs)) pure
 
-shouldFail :: Either (Array UnsuitableReason) Unit -> EffT Unit
+shouldFail :: Either (NonEmptyArray UnsuitableReason) Unit -> EffT Unit
 shouldFail =
   either (\_ -> pure unit) (\_ -> throw "Expected errors, got none")
 
-shouldFailWith :: Array UnsuitableReason -> Either (Array UnsuitableReason) Unit -> EffT Unit
+shouldFailWith :: NonEmptyArray UnsuitableReason -> Either (NonEmptyArray UnsuitableReason) Unit -> EffT Unit
 shouldFailWith exp =
   either (\act -> when (exp `differentFrom` act)
                        (throw ("Expected " <> show exp <> ", got " <> show act)))
          (\_ -> (throw "Expected errors, got none"))
 
   where
-  differentFrom xs ys = Array.sort xs /= Array.sort ys
+  differentFrom xs ys = NonEmptyArray.sort xs /= NonEmptyArray.sort ys
