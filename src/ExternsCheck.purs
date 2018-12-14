@@ -11,7 +11,7 @@ module ExternsCheck
 import Prelude
 
 import Control.MonadPlus (guard, (<|>))
-import Data.Argonaut (Json, foldJsonObject, toArray, toString)
+import Data.Argonaut (Json, caseJsonObject, toArray, toString)
 import Data.Array (elem, (!!))
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
@@ -21,10 +21,10 @@ import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (class Newtype, unwrap)
-import Data.StrMap as StrMap
 import Data.String as String
 import Data.Traversable (traverse)
 import Data.Validation.Semigroup (V, unV, invalid)
+import Foreign.Object as Object
 
 -- | Options for checking an entry point.
 -- |
@@ -127,7 +127,7 @@ exportedValues externs =
     >=> toString
 
 prop :: String -> Json -> Maybe Json
-prop i = foldJsonObject Nothing (StrMap.lookup i)
+prop i = caseJsonObject Nothing (Object.lookup i)
 
 nameIs :: String -> Json -> Boolean
 nameIs ident decl =
