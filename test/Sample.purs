@@ -2,14 +2,12 @@ module Test.Sample where
 
 import Prelude
 
-import Control.Monad.Eff (Eff)
 import Effect (Effect)
-import Test.MyEff as MyEff
+import Test.Bad as Bad
+import Test.Good (Eff, type (^^^))
 import Unsafe.Coerce (unsafeCoerce)
 
 class C (f :: Type -> Type)
-
-infix 5 type Eff as ^^^
 
 undefined :: forall a. a
 undefined = unsafeCoerce unit
@@ -32,6 +30,9 @@ ok_5 = undefined
 ok_6 :: Effect Unit
 ok_6 = undefined
 
+ok_7 :: Effect Int
+ok_7 = pure 0
+
 notok_1 :: forall e. Partial => Eff e Unit
 notok_1 = undefined
 
@@ -44,7 +45,7 @@ notok_3 = undefined
 notok_4 :: forall e a. Semiring a => Eff e a
 notok_4 = undefined
 
-notok_5 :: MyEff.Eff
+notok_5 :: Bad.Eff
 notok_5 = undefined
 
 notok_6 :: Semiring Int => Eff () Int
