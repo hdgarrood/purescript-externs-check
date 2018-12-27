@@ -2,9 +2,6 @@ module Test.Main where
 
 import Prelude
 
-import Effect (Effect)
-import Effect.Console (log)
-import Effect.Exception (throw)
 import Data.Argonaut (jsonParser)
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
@@ -13,12 +10,17 @@ import Data.Either (Either, either)
 import Data.Foldable (for_)
 import Data.Maybe (isJust)
 import Data.String (stripPrefix, Pattern(..))
-import ExternsCheck (UnsuitableReason, checkEntryPoint, defaultOptions, exportedValues, FQName(..))
+import Effect (Effect)
+import Effect.Console (log)
+import Effect.Exception (throw)
+import ExternsCheck (UnsuitableReason, checkEntryPoint, defaultOptions, exportedValues, FQName(..), Options)
 import Node.Encoding (Encoding(UTF8))
 import Node.FS.Sync (readTextFile)
 
+goodEff :: FQName
 goodEff = FQName "Test.Good.Eff"
 
+testOptionsFor :: String -> Options
 testOptionsFor c =
   { mainName: c
   , typeConstructors: pure goodEff <> defaultOptions.typeConstructors
